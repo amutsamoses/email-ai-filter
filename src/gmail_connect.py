@@ -24,7 +24,8 @@ def authenticate_gmail():
 		else:
 			# if for the first time , open brownser for authentication
 			flow = InstalledAppFlow.from_client_secrets_file("credentials.json", SCOPE)
-			creds = flow.run_console()
+			os.environ['BROWSER'] = '/mnt/c/Program Files/Google/Chrome/Application/chrome.exe'
+			creds = flow.run_local_server(port=0, open_browser=False)
 		# save token for next time login
 		with open("token.json", "w") as token:
 			token.write(creds.to_json())
@@ -38,7 +39,7 @@ def main():
 	print("Connection Successfull============")
 	
 	# lets check it out from our profile to confirm we are connected
-	profile = service.user().getProfile(userId="me").execute()
+	profile = service.users().getProfile(userId="me").execute()
 	print(f"connected as: {profile['emailAddress']}")
 	print(f"Total Messages: {profile['messagesTotal']}")
 
