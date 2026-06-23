@@ -20,7 +20,7 @@ def authenticate_gmail():
 
 	# if invalid credentials as user to login
 	if not creds or not creds.valid:
-		if creds and creds.expired and creds.refresh_token():
+		if creds and creds.expired and creds.refresh_token:
 			# if token expired lets refresh it silently
 			print("Token expired: Silently refreshing access token.....")
 			
