@@ -1,6 +1,7 @@
 
 import base64
 from gmail_connect import authenticate_gmail
+from googleapiclient.errors import HttpError
 
 def fetch_emails(service, max_results=10):
 	"""
@@ -8,31 +9,43 @@ def fetch_emails(service, max_results=10):
 	list of parsed email dicts
 	
 	"""
+	if not service:
+		print("[Error] Gmail service object is missing or invalid.")
+		return []
 
 	print(f"\n Fetching last {max_results} emails...........")
 
-	# liat of meassages ids from inbox
-	results = service.users().messages().list(
-	userId='me',
-	labelIds=['INBOX'], maxResults=max_results
-	).execute()
+	# get liat of meassages ids from inbox
+	try:
+		results = service.users().messages().list(
+		userId='me',
+		labelIds=['INBOX'], maxResults=max_results
+		).execute()
 
 
-	# extract message list
-	messages = results.get('messages', [])
+		# extract message list
+		messages = results.get('messages', [])
 
-	if not messages:
-		print("No messages found......")
+		if not messages:
+			print("No messages found, current inbox empty......")
+			return []
+		print(f"Found {len(messages)} messages, Parsing..........")
+
+		# fetch full details for each messages
+		emails = []
+		for msg in messages:
+			try:
+				email_data = parse_email(service, msg['id'])
+				emails.append(email_data)
+			except HttpError as msg_err:
+				print(f"[Warning] Skipped msg ID {msg['id']}API error: {msg_err}")
+				continue
+
+		return emails
+
+	except HttpError as api_err:
+		print(f"[API ERROR] Failed to retreive email list: {api_err}")
 		return []
-	print(f"Found {len(messages)} messages, Parsing..........")
-
-	# fetch full details for each messages
-	emails = []
-	for msg in messages:
-		email_data = parse_email(service, msg['id'])
-		emails.append(email_data)
-
-	return emails
 
 def parse_email(service, msg_id):
 	"""
@@ -61,47 +74,63 @@ def parse_email(service, msg_id):
 
 def extract_body(payload):
 	"""
-	extract readable text from the email
+	extract readable text from the email, recursively
 	"""
 
-	body = ""
+	# body = ""
+	if payload.get('mimeType') == 'text/plain':
+		data = payload['body'].get('data', '')
+		if data:
+			return base64.urlsafe_b64decode(data).decode('utf-8', errors='ignore')
 
 	# email can have direct body or multiple parts
 	if 'parts' in payload:
 		for part in payload['parts']:
-			if part['mimeType'] == 'text/plain':
-				data =  part['body'].get('data', '')
-				if data:
+			body = extract_body(part)
+			if body and body != "[No readable body found]":
+				return body
+			# if part['mimeType'] == 'text/plain':
+				# data =  part['body'].get('data', '')
+				# if data:
 					# gmail decodes with base64
-					body = base64.urlsafe_b64decode(data).decode('utf-8', 
-					errors='ignore'	
-					)
-					break	
+					# body = base64.urlsafe_b64decode(data).decode('utf-8', 
+					# errors='ignore'	
+					# )
+					# break	
 
+	# check top-level body if no parts array exist
+	data = payload.get('body', {}). get('data', '')
+	if data:
+		return base64.urlsafe_b64decode(data).decode('utf-8', errors='ignore')
 
-	else:
-		data = payload['body'].get('data', '')
-		if data:
-			body = base64.urlsafe_b64decode(data).decode('utf-8', errors='igonre')
+	return "[No readablr boby found]"
 
-	return body if body else "[No readablr body found]"
+	# else:
+		# data = payload['body'].get('data', '')
+		# if data:
+			# body = base64.urlsafe_b64decode(data).decode('utf-8', errors='igonre')
+
+	# return body if body else "[No readablr body found]"
 
 
 def main():
-	print("Starting Email fetcher...........")
+	print("============================================")
+	print("Starting Email fetcher Pipleines............")
+	print("============================================")
+
 
 	service = authenticate_gmail()
 
-	emails = fetch_emails(service, max_results=5)
+	emails = fetch_emails(service, max_results=7)
 
 	print(f"\n{'='*60}")
 	for i, email in enumerate(emails, 1):
-		print(f"\nEmail {i}:")
-		print(f"  Frome  : {email['sender']}")
+		# print(f"\nEmail {i}:")
+		print(f"\n[{i}]  Frome  : {email['sender']}")
 		print(f"  Subject: {email['subject']}")
 		print(f"  Date   : {email['date']}")
-		print(f"  Body   : {email['body'][:200]}...")
-		print(f"{'='*60}")
+		print(f"  Body   : {email['body'][:150]}...")
+		print('=' * 60)
 
 if __name__ == '__main__':
 	main()
