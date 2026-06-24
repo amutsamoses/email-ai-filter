@@ -2,6 +2,7 @@
 import base64
 from gmail_connect import authenticate_gmail
 from googleapiclient.errors import HttpError
+from bs4 import BeautifulSoup
 
 def fetch_emails(service, max_results=10):
 	"""
@@ -78,17 +79,21 @@ def extract_body(payload):
 	"""
 
 	# body = ""
+
+	raw_body = ""
+
 	if payload.get('mimeType') == 'text/plain':
 		data = payload['body'].get('data', '')
 		if data:
-			return base64.urlsafe_b64decode(data).decode('utf-8', errors='ignore')
+			raw_body = base64.urlsafe_b64decode(data).decode('utf-8', errors='ignore')
 
 	# email can have direct body or multiple parts
-	if 'parts' in payload:
+	elif 'parts' in payload:
 		for part in payload['parts']:
 			body = extract_body(part)
 			if body and body != "[No readable body found]":
-				return body
+				raw_body = body
+				break
 			# if part['mimeType'] == 'text/plain':
 				# data =  part['body'].get('data', '')
 				# if data:
@@ -99,11 +104,22 @@ def extract_body(payload):
 					# break	
 
 	# check top-level body if no parts array exist
-	data = payload.get('body', {}). get('data', '')
-	if data:
-		return base64.urlsafe_b64decode(data).decode('utf-8', errors='ignore')
+	else:
+		data = payload.get('body', {}). get('data', '')
+		if data:
+			raw_body = base64.urlsafe_b64decode(data).decode('utf-8', errors='ignore')
 
-	return "[No readablr boby found]"
+	if not raw_body or raw_body == "[No readable body found]":
+		return "[No readablr boby found]"
+
+	if "<html>" in raw_body or "<doctype>" in raw_body or "<body>" in raw_body.lower():
+		soup = BeautifulSoup(raw_body, "html.parser")
+
+		cleaned_text = soup.get_text(separator="", strip=True)
+
+		return cleaned_text
+
+	return raw_body
 
 	# else:
 		# data = payload['body'].get('data', '')
