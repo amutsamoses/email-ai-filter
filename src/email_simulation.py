@@ -3,6 +3,8 @@ import re
 from bs4 import BeautifulSoup
 from gmail_connect import authenticate_gmail
 from email_classifier import classify_all_email, display_classified_emails
+from rule_classifier import classify_all_emails_rules, display_results
+
 
 def fetch_emails(service, max_results=10):
     """
@@ -131,9 +133,14 @@ def main():
     service = authenticate_gmail()
     emails = fetch_emails(service, max_results=5)
 
-    classified_emails = classify_all_email(emails)
+    # classified_emails = classify_all_email(emails)
 
-    display_classified_emails(classified_emails)
+    # display_classified_emails(classified_emails)
+
+    # rule base classisifcation
+    classified = classify_all_emails_rules(emails)
+
+    display_results(classified)
 
     print(f"\n{'='*60}")
     for i, email in enumerate(emails, 1):
