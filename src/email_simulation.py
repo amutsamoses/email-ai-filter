@@ -2,7 +2,7 @@ import base64
 import re
 from bs4 import BeautifulSoup
 from gmail_connect import authenticate_gmail
-
+from email_classifier import classify_all_email, display_classified_emails
 
 def fetch_emails(service, max_results=10):
     """
@@ -130,6 +130,10 @@ def main():
     print("Starting Email Fetcher...........")
     service = authenticate_gmail()
     emails = fetch_emails(service, max_results=5)
+
+    classified_emails = classify_all_email(emails)
+
+    display_classified_emails(classified_emails)
 
     print(f"\n{'='*60}")
     for i, email in enumerate(emails, 1):
